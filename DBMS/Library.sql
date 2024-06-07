@@ -1,0 +1,163 @@
+-- Consider the following schema for a Library Database: 
+-- BOOK(Book_id, Title, Publisher_Name, Pub_Year) 
+-- BOOK_AUTHORS(Book_id, Author_Name) 
+-- PUBLISHER(Name, Address, Phone) 
+-- BOOK_COPIES(Book_id, Programme_id, No-of_Copies) 
+-- BOOK_LENDING(Book_id, Programme_id, Card_No, Date_Out, Due_Date) 
+-- LIBRARY_PROGRAMME(Programme_id, Programme_Name, Address) 
+
+-- Write SQL queries to 
+-- 1. Retrieve details of all books in the library – id, title, name of publisher, authors, number of copies in each Programme, etc. 
+-- 2. Get the particulars of borrowers who have borrowed more than 3 books, but from Jan 2023 to Jun  2023. 
+-- 3. Delete a book in BOOK table. Update the contents of other tables to reflect this data manipulation operation. 
+-- 4. Partition the BOOK table based on year of publication. Demonstrate its working with a simple query. 
+-- 5. Create a view of all books and its number of copies that are currently available in the Library
+
+
+
+create schema library;
+use library;
+
+CREATE TABLE PUBLISHER(
+		NAME VARCHAR(20) PRIMARY KEY,
+		ADDRESS VARCHAR(20),
+		PHONE VARCHAR(20)); 
+	
+INSERT INTO PUBLISHER VALUES('Pearson','London',9874522224);
+INSERT INTO PUBLISHER VALUES('TataMcGraw','NewYork',9858523565);
+INSERT INTO PUBLISHER VALUES('Oxford','UK',9885121112);
+INSERT INTO PUBLISHER VALUES('Cambridge','UK',9785634615);
+INSERT INTO PUBLISHER VALUES('OReilly','California',9994125455);
+
+CREATE TABLE BOOK (
+ 		BOOK_ID VARCHAR(20) PRIMARY KEY, 
+ 		TITLE VARCHAR(40), 
+ 		PUBLISHER_NAME VARCHAR(20) references
+ 		PUBLISHER(NAME) on delete cascade, 
+ 		PUB_YEAR INT);
+
+INSERT INTO BOOK VALUES ('B101','DBMS','Pearson',2017);
+INSERT INTO BOOK VALUES ('B102','AIML','TataMcGraw',2009);
+INSERT INTO BOOK VALUES ('B103','DCN','Pearson',2017);
+INSERT INTO BOOK VALUES ('B104','ATC','Oxford',2017);
+INSERT INTO BOOK VALUES ('B105','Python','OReilly',2014);
+INSERT INTO BOOK VALUES ('B106','Hadoop','Pearson',2000);
+
+CREATE  TABLE  BOOK_AUTHORS(
+		BOOK_ID varchar(20),
+		AUTHOR_NAME VARCHAR(20), 
+		PRIMARY KEY(BOOK_ID, AUTHOR_NAME),
+		FOREIGN KEY(BOOK_ID) REFERENCES BOOK(BOOK_ID)ON DELETE CASCADE);
+
+
+INSERT INTO BOOK_AUTHORS VALUES('B101', 'Elmarsi');
+INSERT INTO BOOK_AUTHORS VALUES('B101', 'Navathe');
+INSERT INTO BOOK_AUTHORS VALUES('B101', 'Ramakrishnan');
+INSERT INTO BOOK_AUTHORS VALUES('B106', 'Douglas');
+INSERT INTO BOOK_AUTHORS VALUES('B102', 'Elaine');
+INSERT INTO BOOK_AUTHORS VALUES('B105', 'Srinivasan');
+
+CREATE TABLE LIBRARY_PROGRAMME(
+		PROGRAMME_ID VARCHAR(20) PRIMARY KEY,
+		PROGRAMME_NAME VARCHAR(10),
+		ADDRESS VARCHAR(20));
+
+INSERT INTO LIBRARY_PROGRAMME VALUES ('L1','SAHYADRI','Mangalore');
+INSERT INTO LIBRARY_PROGRAMME VALUES ('L2','SAPNA','Mangalore');
+INSERT INTO LIBRARY_PROGRAMME VALUES ('L3','SANKALP','Bangalore');
+INSERT INTO LIBRARY_PROGRAMME VALUES ('L4','PENGUIN','Chennai');
+INSERT INTO LIBRARY_PROGRAMME VALUES ('L5','AGNES','Chennai');
+
+CREATE TABLE BOOK_COPIES(
+ 		BOOK_ID VARCHAR(20) REFERENCES BOOK(BOOK_ID) ON DELETE CASCADE,
+ 		PROGRAMME_ID VARCHAR(20) REFERENCES LIBRARY_PROGRAMME(PROGRAMME_ID) ON DELETE CASCADE,
+ 		NO_OF_COPIES INT,
+ 		primary key(BOOK_ID, PROGRAMME_ID));
+
+INSERT INTO BOOK_COPIES VALUES ('B101','L1',99);
+INSERT INTO BOOK_COPIES VALUES ('B101','L2',100);
+INSERT INTO BOOK_COPIES VALUES ('B102','L1',99);
+INSERT INTO BOOK_COPIES VALUES ('B102','L2',100);
+INSERT INTO BOOK_COPIES VALUES ('B103','L2',10);
+INSERT INTO BOOK_COPIES VALUES ('B103','L1',9);
+
+CREATE TABLE  BOOK_LENDING(
+		BOOK_ID VARCHAR(20),
+		PROGRAMME_ID VARCHAR(20),
+		CARD_NO VARCHAR(20),
+		DATE_OUT DATE,
+		DUE_DATE DATE, 
+		PRIMARY KEY(PROGRAMME_ID, BOOK_ID, CARD_NO),
+		FOREIGN KEY(BOOK_ID) REFERENCES book(BOOK_ID) ON DELETE CASCADE,
+		FOREIGN KEY(PROGRAMME_ID) REFERENCES LIBRARY_PROGRAMME(PROGRAMME_ID) ON DELETE CASCADE,
+		CONSTRAINT CK1 CHECK (DUE_DATE > DATE_OUT));
+
+INSERT INTO BOOK_LENDING VALUES('B101','L1','FA101','2021-01-02','2021-01-09');
+INSERT INTO BOOK_LENDING VALUES('B101','L1','FA102','2023-03-02','2023-03-09');
+INSERT INTO BOOK_LENDING VALUES('B102','L1','FA102','2023-03-02','2023-03-09');
+INSERT INTO BOOK_LENDING VALUES('B101','L2','FA102','2023-03-02','2023-03-09');
+INSERT INTO BOOK_LENDING VALUES('B101','L1','S103','2022-04-04','2022-06-30');
+
+
+-- QUERY 1
+SELECT B.BOOK_ID,B.TITLE,B.PUBLISHER_NAME,BA.AUTHOR_NAME,BC.NO_OF_COPIES
+FROM BOOK B, BOOK_AUTHORS BA, BOOK_COPIES BC,LIBRARY_PROGRAMME LP
+WHERE B.BOOK_ID=BA.BOOK_ID AND B.BOOK_ID=BC.BOOK_ID AND BC.PROGRAMME_ID =LP.PROGRAMME_ID;
+
+-- QUERY 2
+SELECT CARD_NO
+FROM BOOK_LENDING 
+WHERE DATE_OUT BETWEEN '2023-01-01' AND  '2023-06-30' 
+GROUP BY CARD_NO 
+HAVING COUNT(*)>=3;
+
+-- QUERY 3
+DELETE FROM BOOK WHERE BOOK_ID='&BOOK_ID';
+
+-- QUERY 4
+CREATE TABLE BOOK1 (
+ 		BOOK_ID VARCHAR(20), 
+ 		TITLE VARCHAR(40), 
+ 		PUBLISHER_NAME VARCHAR(20) references
+ 		PUBLISHER(NAME) on delete cascade, 
+ 		PUB_YEAR INT,
+        PRIMARY KEY (BOOK_ID, PUB_YEAR))
+PARTITION BY RANGE(PUB_YEAR)(
+PARTITION P1 values less than (2005),
+PARTITION P2 VALUES LESS THAN(2015),
+PARTITION P3 values less than(MAXVALUE)
+);
+
+
+INSERT INTO BOOK1 VALUES ('B101','DBMS','Pearson',2017);
+INSERT INTO BOOK1 VALUES ('B102','AIML','TataMcGraw',2009);
+INSERT INTO BOOK1 VALUES ('B103','DCN','Pearson',2017);
+INSERT INTO BOOK1 VALUES ('B104','ATC','Oxford',2017);
+INSERT INTO BOOK1 VALUES ('B105','Python','OReilly',2014);
+INSERT INTO BOOK1 VALUES ('B106','Hadoop','Pearson',2000);
+
+ SELECT * FROM BOOK1 PARTITION(P1);
+  SELECT * FROM BOOK1 PARTITION(P2);
+   SELECT * FROM BOOK1 PARTITION(P3);
+
+-- QUERY 5
+
+Create view available_book1
+     As
+     Select b.book_id, b.title, 
+     sum(bc.no_of_copies) - (select count(*) 
+				from book_lending  bl
+                                where bl.book_id= b. book_id 
+                                group by bl.book_id) as books_available 
+     from book b, book_copies  bc
+     where b.book_id=bc.book_id 
+    group by b.book_id,b.title;
+    
+    
+    SELECT * FROM available_book1;
+
+
+
+
+
+ 
